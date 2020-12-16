@@ -10,12 +10,17 @@ pragma experimental ABIEncoderV2;
 * This code is as complex as it is to reduce gas costs.
 /******************************************************************************/
 
+import "./LibEtags.sol";
 import "../interfaces/IDiamondCut.sol";
 
 library LibDiamond {
-    bytes32 constant DIAMOND_STORAGE_POSITION = keccak256("diamond.standard.diamond.storage");
+    bytes32 constant DIAMOND_STORAGE_POSITION = keccak256("qaxh.io.usersafe.storage");
+    uint256 constant internal smallTransactionThreshold = 5000000000;
 
     struct DiamondStorage {
+        // address qaxh; //moved in keymanagerStorage
+        address contractOwner;
+
         // maps function selectors to the facets that execute the functions.
         // and maps the selectors to their position in the selectorSlots array.
         // func selector => address facet, selector position
@@ -29,16 +34,26 @@ library LibDiamond {
         // Used to query if a contract implements an interface.
         // Used to implement ERC-165.
         mapping(bytes4 => bool) supportedInterfaces;
-        // owner of the contract
-        address contractOwner;
+        
+        uint256 currentEtagIndex;
+        mapping (uint256 => LibEtags.EventTag) Etags;
+        
     }
 
-    function diamondStorage() internal pure returns (DiamondStorage storage ds) {
+    function diamondStorage() internal pure returns (DiamondStorage storage mainStorage) {
         bytes32 position = DIAMOND_STORAGE_POSITION;
         assembly {
-            ds.slot := position
+            mainStorage.slot := position
         }
     }
+
+    // function setupUtils(address _qaxh) public {
+    //     DiamondStorage storage mainStorage = diamondStorage();
+
+    //     require(mainStorage.qaxh == address(0), "Qaxh utils setup can only be done once");
+    //     mainStorage.qaxh = _qaxh;
+    //     // qaxhMasterLedger = _qaxhMasterLedger;
+    // }
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
@@ -61,6 +76,13 @@ library LibDiamond {
         require(msg.sender == diamondStorage().contractOwner, "LibDiamond: Must be contract owner");
         _;
     }
+
+    // modifier filterQaxh() {
+    //     DiamondStorage storage ds = diamondStorage();
+
+    //     require(msg.sender == ds.qaxh, "This method can only be called by the qaxh address");
+    //     _;
+    // }
 
     event DiamondCut(IDiamondCut.FacetCut[] _diamondCut, address _init, bytes _calldata);
 
